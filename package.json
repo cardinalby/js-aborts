@@ -1,0 +1,44 @@
+{
+    "name": "js-aborts",
+    "version": "1.0.0",
+    "description": "Golang-style hierarchical AbortControllers",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "type": "module",
+    "keywords": [
+        "golang",
+        "go",
+        "context",
+        "abort",
+        "abortcontroller",
+        "timeout",
+        "using",
+        "disposable"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/cardinalby/js-aborts.git"
+    },
+    "homepage": "https://github.com/cardinalby/js-aborts",
+    "author": "cardinalby",
+    "license": "MIT",
+    "files": [
+        "dist/**/*.d.ts",
+        "dist/**/*.js",
+        "LICENSE"
+    ],
+    "devDependencies": {
+        "@types/jest": "^30.0.0",
+        "@types/node": "^24.10.0",
+        "jest": "^30.2.0",
+        "ts-jest": "^29.4.5",
+        "typescript": "^5.9.3"
+    },
+    "scripts": {
+        "build": "tsc",
+        "test": "jest",
+        "prepare": "npm run build",
+        "version": "git add -A src",
+        "postversion": "git push && git push --tags"
+    }
+}
