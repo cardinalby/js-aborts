@@ -1,12 +1,12 @@
 function noOp() {}
 
+const MAX_TIMEOUT = 2 ** 31 - 1 // max safe 32bit timeout, ~24.8 days
+
 // returns timeout cancel function
 function setLongTimeout(
     callback: () => void,
     timeoutMs: number
 ): () => void {
-    const MAX_TIMEOUT = 2 ** 31 - 1 // max safe 32bit timeout, ~24.8 days
-
     if (timeoutMs <= 0) {
         callback()
         return noOp
@@ -35,9 +35,20 @@ function setLongTimeout(
     }
 }
 
+function polyfillSymbolDispose() {
+    if (typeof Symbol.dispose === 'undefined') {
+        (Symbol as any).dispose = Symbol('Symbol.dispose')
+    }
+}
+
+interface Disposable {
+    [Symbol.dispose](): void
+}
+
 function createController(): aborts.Controller {
     const ac = new AbortController()
-    if (typeof Symbol.dispose !== 'undefined' && !(Symbol.dispose in ac)) {
+    polyfillSymbolDispose()
+    if (!(Symbol.dispose in ac)) {
         (ac as aborts.Controller)[Symbol.dispose] = () => {
             ac.abort()
         }
@@ -48,7 +59,8 @@ function createController(): aborts.Controller {
 function createAbortedController(reason: any): aborts.Controller {
     const ac = new AbortController()
     ac.abort(reason)
-    if (typeof Symbol.dispose !== 'undefined' && !(Symbol.dispose in ac)) {
+    polyfillSymbolDispose()
+    if (!(Symbol.dispose in ac)) {
         (ac as aborts.Controller)[Symbol.dispose] = noOp
     }
     return ac as aborts.Controller
@@ -79,36 +91,41 @@ export namespace aborts {
 
     /**
      * Creates a new AbortController
-     * If parentSignal is provided, abortion of the parentSignal also aborts the returned controller.
-     * If the parentSignal is already aborted, the returned controller is also already aborted.
-     * Aborting the returned controller does not abort the parent.
+     * If valid parentSignals are provided, abortion any of them also aborts the returned controller.
+     * If any parentSignal is already aborted, the returned controller is also already aborted with the reason
+     * of the first aborted parentSignal
      */
-    export function create(parentSignal?: AbortSignal): Controller {
-        if (parentSignal?.aborted) {
-            return createAbortedController(parentSignal.reason)
+    export function create(...parentSignals: (AbortSignal|undefined)[]): Controller {
+        const parents = parentSignals.filter(s => s) as AbortSignal[]
+        for (const parent of parents) {
+            if (parent.aborted) {
+                return createAbortedController(parent.reason)
+            }
         }
         const ac = createController()
 
-        parentSignal?.addEventListener(
-            'abort',
-            () => ac.abort(parentSignal.reason),
-            {
-                signal: ac.signal,
-                once: true,
-            },
-        )
+        for (const parentSignal of parents) {
+            parentSignal?.addEventListener(
+                'abort',
+                () => ac.abort(parentSignal.reason),
+                {
+                    signal: ac.signal,
+                    once: true,
+                },
+            )
+        }
 
         return ac
     }
 
     /**
-     * Creates a new AbortController that aborts (with reason = deadlineExceeded) after the specified timeoutMs.
-     * If parentSignal is provided, abortion of the parentSignal also aborts the returned controller.
-     * If the parentSignal is already aborted, the returned controller is also already aborted.
-     * Aborting the returned controller does not abort the parent
+     * Creates a new AbortController that aborts after the specified timeoutMs.
+     * If valid parentSignals are provided, abortion any of them also aborts the returned controller.
+     * If any parentSignal is already aborted, the returned controller is also already aborted with the reason
+     * of the first aborted parentSignal
      */
-    export function timeout(timeoutMs: number, parentSignal?: AbortSignal): Controller {
-        const ac = create(parentSignal)
+    export function timeout(timeoutMs: number, ...parentSignals: (AbortSignal|undefined)[]): Controller {
+        const ac = create(...parentSignals)
         if (ac.signal.aborted) {
             return ac
         }
