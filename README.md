@@ -1,10 +1,10 @@
 # js-aborts
 
 [AbortController](https://developer.mozilla.org/en-US/docs/Web/API/AbortController) constructors inspired 
-by Go's [context](https://pkg.go.dev/context) package:
+by Go's [context](https://pkg.go.dev/context) package
 
 ✅ Creating [AbortController](https://developer.mozilla.org/en-US/docs/Web/API/AbortController)s that 
-inherit abortion from a parent [AbortSignal](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal) 
+inherit abortion from a parent [AbortSignal](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)s 
 and can be aborted manually or after a timeout.
 
 ✅ Created AbortControllers are `Disposable` and can be used with 
@@ -13,6 +13,15 @@ and can be aborted manually or after a timeout.
 ✅ Supports long timeouts (no [wraps around](https://github.com/nodejs/node-v0.x-archive/issues/3605)).
 
 ✅ Zero dependencies
+
+## Disclaimer
+
+For production use I would recommend using 
+[`AbortSignal.timeout()`](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static) and 
+[`AbortSignal.any()`]()(https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static). 
+
+However, there are some issues with leaks if you use them together. My approach focuses on creating derived 
+`AbortController` rather than `AbortSignal` to allow manual disposal of not needed controllers to avoid leaks.
 
 ## Install
 
@@ -29,30 +38,24 @@ import { aborts } from 'js-aborts';
 ### 🔻`aborts.create`
 
 ```typescript
-function create(parentSignal?: AbortSignal): AbortController;
+function create(...parentSignals: (AbortSignal|undefined)[]): AbortController;
 ```
 
-Creates an `AbortController` that:
-- is already aborted if the `parentSignal` is aborted,
-- will be aborted when the `parentSignal` is aborted
-- is a regular `AbortController` if the `parentSignal` is not provided.
-- is Disposable and can be used with `using` statement.
-
-Aborting the returned controller does not affect the `parentSignal`.
+Creates a new `AbortController`:
+- If valid `parentSignals` are provided, abortion any of them also aborts the returned controller. 
+- If any of `parentSignals` is already aborted, the returned controller is also already aborted with the reason 
+  of the first aborted parent signal
 
 ### 🔻 `aborts.timeout`
 
 ```typescript
-function timeout(timeoutMs: number, parentSignal?: AbortSignal): AbortController;
+function timeout(timeoutMs: number, ...parentSignals: (AbortSignal|undefined)[]): AbortController;
 ```
 
-Creates an `AbortController` that:
-- is already aborted if the `parentSignal` is aborted,
-- will be aborted when the `parentSignal` is aborted or after `timeoutMs` milliseconds,
-- is a regular `AbortController` if the `parentSignal` is not provided.
-- is Disposable and can be used with `using` statement.
-
-Aborting the returned controller does not affect the `parentSignal`.
+Creates a new `AbortController` that aborts after the specified `timeoutMs`.
+If valid `parentSignals` are provided, abortion any of them also aborts the returned controller.
+If any of `parentSignals` is already aborted, the returned controller is also already aborted with the reason
+of the first aborted parent signal
 
 ## Usage notes
 
@@ -84,7 +87,7 @@ the lib's functions return `AbortController` rather than `AbortSignal`.
 
 This is done to allow manual abortion of not needed controllers to avoid leaks of internal timers/listeners.
 
-You should always dispose the created controllers when they are not needed anymore:
+It's better to dispose the created controllers explicitly when they are not needed anymore:
 
 ```typescript
 // In typescript < 5.2:
@@ -106,3 +109,8 @@ function myFunc(signal?: AbortSignal) {
     // use ac.signal
 }
 ```
+
+> [!WARNING]  
+> Be careful with `using` statement: it's not currently supported in all environments. The lib is built with
+> ES6 target and polyfills `Symbol.dispose` that works with the code Typescript generates for `using` statements,
+> but it's a bit fragile.
