@@ -18,7 +18,7 @@ and can be aborted manually or after a timeout.
 
 For production use I would recommend using 
 [`AbortSignal.timeout()`](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static) and 
-[`AbortSignal.any()`]()(https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static). 
+[`AbortSignal.any()`](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static). 
 
 However, there are some issues with leaks if you use them together. My approach focuses on creating derived 
 `AbortController` rather than `AbortSignal` to allow manual disposal of not needed controllers to avoid leaks.
